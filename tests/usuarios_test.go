@@ -29,14 +29,14 @@ import (
 
 // Definición de estructuras
 type UserRequest struct {
-    Name  string `json:"name"`
-    Email string `json:"email"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 type UserResponse struct {
-    ID    int    `json:"id"`
-    Name  string `json:"name"`
-    Email string `json:"email"`
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
 }
 
 var (
@@ -49,8 +49,8 @@ var (
 	debug       = false
 	db          *sql.DB
 	mock        sqlmock.Sqlmock
-	response *httptest.ResponseRecorder
-	res UserResponse
+	response    *httptest.ResponseRecorder
+	res         UserResponse
 )
 
 // @exe_cmd ejecuta comandos en la terminal
@@ -217,57 +217,58 @@ func getPages(ruta string) []byte {
 // @iSendRequestToWhereBodyIsJson realiza la solicitud a la API
 func iSendRequestToWhereBodyIsJson(method, endpoint, bodyreq string) error {
 	if debug {
-        fmt.Println("Step: iSendRequestToWhereBodyIsJson")
-    }
+		fmt.Println("Step: iSendRequestToWhereBodyIsJson")
+	}
 
-    var url string
-    baseURL := endpoint
+	var url string
+	baseURL := endpoint
 
-    switch method {
-    case "GET", "POST":
-        url = baseURL
+	switch method {
+	case "GET", "POST":
+		url = baseURL
 
-    case "PUT", "DELETE", "GETID":
-        str := strconv.FormatFloat(Id, 'f', 0, 64)
-        url = baseURL + "/" + str
+	case "PUT", "DELETE", "GETID":
+		str := strconv.FormatFloat(Id, 'f', 0, 64)
+		url = baseURL + "/" + str
 
-        if method == "GETID" {
-            method = "GET"
-        }
-    }
+		if method == "GETID" {
+			method = "GET"
+		}
+	}
 
-    if debug {
-        fmt.Println("Test: " + method + " to " + url)
-    }
+	if debug {
+		fmt.Println("Test: " + method + " to " + url)
+	}
 
 	beego.BeeApp.Handlers.Add("/v1/users", &controllers.UsersController{}, "get:GetAll")
+	beego.BeeApp.Handlers.Add("/v1/users", &controllers.UsersController{}, "post:Post")
 
-    // Crear la solicitud usando httptest y la ruta en Beego
-    req, err := http.NewRequest(method, url, nil)
-    if err != nil {
-        return err
-    }
-    req.Header.Set("Content-Type", "application/json")
+	// Crear la solicitud usando httptest y la ruta en Beego
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
 
-    // Usa el ResponseRecorder para capturar la respuesta
-    response = httptest.NewRecorder()
+	// Usa el ResponseRecorder para capturar la respuesta
+	response = httptest.NewRecorder()
 
-    // Llama al handler correspondiente
-    beego.BeeApp.Handlers.ServeHTTP(response, req)
+	// Llama al handler correspondiente
+	beego.BeeApp.Handlers.ServeHTTP(response, req)
 
-    // Captura el estado de la respuesta y el cuerpo
-    resStatus = response.Result().Status
-    resBody, err = io.ReadAll(response.Body)
-	if err != nil{
+	// Captura el estado de la respuesta y el cuerpo
+	resStatus = response.Result().Status
+	resBody, err = io.ReadAll(response.Body)
+	if err != nil {
 		return err
 	}
 
-    if method == "POST" && resStatus == "201 Created" {
-        json.Unmarshal(resBody, &savepostres)
-        Id = savepostres["Id"].(float64)
-    }
+	if method == "POST" && resStatus == "201 Created" {
+		json.Unmarshal(resBody, &savepostres)
+		Id = savepostres["Id"].(float64)
+	}
 
-    return nil
+	return nil
 
 }
 
@@ -296,7 +297,6 @@ func theResponseShouldMatchJson(arg1 string) error {
 
 	pages_s := string(pages)
 	body_s := string(resBody)
-
 
 	var data1, data2 interface{}
 
@@ -332,52 +332,43 @@ func theResponseShouldMatchJson(arg1 string) error {
 	return fmt.Errorf("Respuesta no validada")
 }
 
-func iSetupMockWithDynamicData() error {
+func iSetupMockWithDynamicData(res string) error {
+
+	fmt.Println("Entra a la creación del mock")
 	return setupMockWithDynamicData(res)
 }
 
-func setupMockWithDynamicData(res UserResponse) error {
-	res.ID = 1
-	res.Name = "Juan"
-	res.Email = "XDDD"
-    var err error
-    db, mock, err = sqlmock.New()
-    if err != nil {
-        return fmt.Errorf("an error '%s' was not expected when opening a stub database connection", err)
-    }
+func setupMockWithDynamicData(res string) error {
 
-    // Configurar mock para la consulta de usuarios
-    mock.ExpectQuery("SELECT (.+) FROM users").
-        WillReturnRows(sqlmock.NewRows([]string{"id", "name", "email"}).
-            AddRow(res.ID, res.Name, res.Email))
+	var err error
+	db, mock, err = sqlmock.New()
+	if err != nil {
+		fmt.Errorf("an error '%s' was not expected when opening a stub database connection", err)
+	}
 
+	// Configurar mock para la consulta de usuarios
+	mock.ExpectPrepare(`SELECT T0\."name", T0\."id", T0\."document" FROM "users" T0 LIMIT 10`).
+	ExpectQuery().
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "document"}).
+			AddRow("Juan", 1, 123456))
 
+	// Configurar mock para la creación de usuarios
+	mock.ExpectBegin()
+        mock.ExpectExec(`INSERT INTO "users" \("name", "email"\) VALUES \(\$1, \$2, \$3\)`).
+            WithArgs("Pepito", 1, 1000256789).
+            WillReturnResult(sqlmock.NewResult(1, 1))
+        mock.ExpectCommit()
+	
 	orm.RegisterDriver("postgres", orm.DRPostgres)
 	orm.AddAliasWthDB("default", "postgres", db)
 
-    return nil
+	return nil
 }
 
 // @FeatureContext Define los steps de los escenarios a ejecutar
 func FeatureContext(s *godog.ScenarioContext) {
-	
-	var err error
-    db, mock, err = sqlmock.New()
-    if err != nil {
-        fmt.Errorf("an error '%s' was not expected when opening a stub database connection", err)
-    }
 
-    // Configurar mock para la consulta de usuarios
-    stmt := mock.ExpectPrepare(`SELECT T0\."name", T0\."id", T0\."document" FROM "users" T0 LIMIT 10`)
-    stmt.ExpectQuery().
-        WillReturnRows(sqlmock.NewRows([]string{"id", "name", "document"}).
-            AddRow("Juan", 1, 123456))
-
-
-	orm.RegisterDriver("postgres", orm.DRPostgres)
-	orm.AddAliasWthDB("default", "postgres", db)
-
-	//s.Step(`^I setup mock with dynamic data whit $`, iSetupMockWithDynamicData)
+	s.Step(`^I setup mock with dynamic data whit "([^"]*)"$`, iSetupMockWithDynamicData)
 	s.Step(`^I send "([^"]*)" request to "([^"]*)" where body is json "([^"]*)"$`, iSendRequestToWhereBodyIsJson)
 	s.Step(`^the response code should be "([^"]*)"$`, theResponseCodeShouldBe)
 	s.Step(`^the response should match json "([^"]*)"$`, theResponseShouldMatchJson)
