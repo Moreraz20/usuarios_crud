@@ -5,12 +5,12 @@ go 1.18
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/astaxie/beego v1.12.3
-	github.com/beego/beego v1.12.12
 	github.com/cucumber/godog v0.14.1
 	github.com/lib/pq v1.10.9
 )
 
 require (
+	github.com/beego/beego v1.12.13
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/cucumber/gherkin/go/v26 v26.2.0 // indirect

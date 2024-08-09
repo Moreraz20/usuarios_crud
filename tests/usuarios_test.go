@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
+
+	//"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -20,24 +23,13 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/astaxie/beego/orm"
+	//"github.com/astaxie/beego/context"
 	"github.com/cucumber/godog"
 	"github.com/cucumber/godog/colors"
 	"github.com/udistrital/usuarios_crud/controllers"
 
 	"github.com/astaxie/beego"
 )
-
-// Definición de estructuras
-type UserRequest struct {
-	Name  string `json:"name"`
-	Email string `json:"email"`
-}
-
-type UserResponse struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
-}
 
 var (
 	opt         = godog.Options{Output: colors.Colored(os.Stdout)}
@@ -46,11 +38,10 @@ var (
 	savepostres map[string]interface{}
 	IntentosAPI = 1
 	Id          float64
-	debug       = false
+	debug       = true
 	db          *sql.DB
 	mock        sqlmock.Sqlmock
 	response    *httptest.ResponseRecorder
-	res         UserResponse
 )
 
 // @exe_cmd ejecuta comandos en la terminal
@@ -107,6 +98,7 @@ func run_bee() {
 
 // @init inicia la aplicacion para realizar los test
 func init() {
+
 	fmt.Println("Inicio de pruebas de aceptación al API")
 
 	//run_bee()
@@ -205,23 +197,26 @@ func sameStructure(data1, data2 interface{}) bool {
 
 // @getPages convierte en un tipo el json
 func getPages(ruta string) []byte {
-	raw, err := os.ReadFile(ruta)
+	raw, err := ioutil.ReadFile(ruta)
 	if err != nil {
 		fmt.Println(err.Error())
 		os.Exit(1)
 	}
-
 	return raw
 }
 
 // @iSendRequestToWhereBodyIsJson realiza la solicitud a la API
 func iSendRequestToWhereBodyIsJson(method, endpoint, bodyreq string) error {
+	
+
+	fmt.Println(bodyreq)
+
 	if debug {
 		fmt.Println("Step: iSendRequestToWhereBodyIsJson")
 	}
 
 	var url string
-	baseURL := endpoint
+	baseURL := "http://:localhost:8080" + endpoint
 
 	switch method {
 	case "GET", "POST":
@@ -240,11 +235,20 @@ func iSendRequestToWhereBodyIsJson(method, endpoint, bodyreq string) error {
 		fmt.Println("Test: " + method + " to " + url)
 	}
 
-	beego.BeeApp.Handlers.Add("/v1/users", &controllers.UsersController{}, "get:GetAll")
 	beego.BeeApp.Handlers.Add("/v1/users", &controllers.UsersController{}, "post:Post")
 
+	pages := getPages(bodyreq)
+
+	body := []byte(`{
+		"Name": "Post title",
+		"Id": 1,
+		"Document": 1
+	}`)
+
+	fmt.Println("Buffer Bytes")
+	fmt.Println(bytes.NewBuffer(pages))
 	// Crear la solicitud usando httptest y la ruta en Beego
-	req, err := http.NewRequest(method, url, nil)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}
@@ -256,12 +260,6 @@ func iSendRequestToWhereBodyIsJson(method, endpoint, bodyreq string) error {
 	// Llama al handler correspondiente
 	beego.BeeApp.Handlers.ServeHTTP(response, req)
 
-	// Captura el estado de la respuesta y el cuerpo
-	resStatus = response.Result().Status
-	resBody, err = io.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
 
 	if method == "POST" && resStatus == "201 Created" {
 		json.Unmarshal(resBody, &savepostres)
@@ -297,6 +295,7 @@ func theResponseShouldMatchJson(arg1 string) error {
 
 	pages_s := string(pages)
 	body_s := string(resBody)
+	fmt.Println(body_s)
 
 	var data1, data2 interface{}
 
@@ -345,20 +344,18 @@ func setupMockWithDynamicData(res string) error {
 	if err != nil {
 		fmt.Errorf("an error '%s' was not expected when opening a stub database connection", err)
 	}
-
 	// Configurar mock para la consulta de usuarios
-	mock.ExpectPrepare(`SELECT T0\."name", T0\."id", T0\."document" FROM "users" T0 LIMIT 10`).
-	ExpectQuery().
-		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "document"}).
-			AddRow("Juan", 1, 123456))
+	// mock.ExpectPrepare(`SELECT T0\."name", T0\."id", T0\."document" FROM "users" T0 LIMIT 10`).
+	// 	ExpectQuery().
+	// 	WillReturnRows(sqlmock.NewRows([]string{"id", "name", "document"}).
+	// 		AddRow("Juan", 1, 123456))
 
 	// Configurar mock para la creación de usuarios
-	mock.ExpectBegin()
-        mock.ExpectExec(`INSERT INTO "users" \("name", "email"\) VALUES \(\$1, \$2, \$3\)`).
-            WithArgs("Pepito", 1, 1000256789).
-            WillReturnResult(sqlmock.NewResult(1, 1))
-        mock.ExpectCommit()
-	
+	mock.ExpectPrepare(`INSERT INTO "uers" \("name", "id", document\) VALUES \(\$1, \$2, \$3\)`).ExpectExec().
+		WithArgs("Pepito", 1, 1000256789).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	orm.Debug = true
 	orm.RegisterDriver("postgres", orm.DRPostgres)
 	orm.AddAliasWthDB("default", "postgres", db)
 

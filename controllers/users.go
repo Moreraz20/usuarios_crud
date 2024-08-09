@@ -3,9 +3,12 @@ package controllers
 import (
 	"encoding/json"
 	"errors"
-	"github.com/udistrital/usuarios_crud/models"
+	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/udistrital/usuarios_crud/models"
 
 	"github.com/astaxie/beego"
 )
@@ -32,15 +35,23 @@ func (c *UsersController) URLMapping() {
 // @Failure 403 body is empty
 // @router / [post]
 func (c *UsersController) Post() {
+	fmt.Println("Body")
+	fmt.Println(c.Ctx.Input)
+	fmt.Println(reflect.TypeOf(c.Ctx.Input.RequestBody))
+	fmt.Println(c.Ctx.Input.RequestBody)
 	var v models.Users
 	if err := json.Unmarshal(c.Ctx.Input.RequestBody, &v); err == nil {
 		if _, err := models.AddUsers(&v); err == nil {
+			fmt.Println("Llegué api")
 			c.Ctx.Output.SetStatus(201)
 			c.Data["json"] = v
 		} else {
+			fmt.Println("Da error")
 			c.Data["json"] = err.Error()
 		}
 	} else {
+		fmt.Println("Pasa por error 400")
+		c.Ctx.Output.SetStatus(400)
 		c.Data["json"] = err.Error()
 	}
 	c.ServeJSON()
